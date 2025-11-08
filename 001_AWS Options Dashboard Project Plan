@@ -1,4 +1,79 @@
 
+AWS + Python 高性能优化工具与实现方案 
+1. 适用目标
+- 场景：你希望在 AWS 上做 Options Dashboard，使用 Python 并提高性能、并发处理、数据优化和策略回测效率。
+- 数据源：Polygon.io（已付费）
+- 架构：API Gateway + Lambda + DynamoDB + S3 + CloudFront
+- 需求：引入 Python 优化类工具/库，提高性能、扩展能力、低成本运行
+
+2. 推荐的 Python 优化工具（适用于 AWS）
+
+(1) AWS Lambda Powertools for Python
+- 专门为 Lambda 设计的工具库：日志、追踪、指标埋点、幂等性、参数管理
+- 减少样板代码，提高可维护性
+
+(2) AWS SDK for pandas (awswrangler)
+- 让 pandas 直接读/写 S3、Athena、Glue、DynamoDB
+- 用于保存期权历史数据到 S3 Parquet 或 Athena 分析
+
+(3) Polars (替代 pandas，高性能 DataFrame)
+- Rust 编写，比 pandas 更快、多线程、支持懒执行
+- 适合处理大量 Options OI、IV 分布、历史数据分析
+
+(4) Optuna（策略参数优化/超参搜索）
+- 用于调优策略阈值（例如 OI 变化阈值、PCR 边界、IV Rank 参数）
+- 提供 Web Dashboard，可实时可视化优化结果
+
+(5) Ray / Ray Tune（可选，用于分布式任务）
+- 如果未来要做批量回测或多标的同时优化
+- 可部署在 EC2、EKS、或 SageMaker
+
+3. 如何在 AWS 中使用这些工具
+
+Stage 1: Lambda API + Powertools
+- 将 FastAPI + Mangum 部署为 Lambda
+- 使用 Powertools 管理 logs, trace, metrics
+- 处理逻辑：请求 → 查 DynamoDB → 缓存命中 → 返回
+
+Stage 2: 数据落地与 Parquet 优化
+- 使用 awswrangler 将 options 数据保存至 S3（Parquet 格式）
+- 可通过 Athena 查询历史（PCR、OI、IV Skew 分析）
+
+Stage 3: Polars 快速分析 OI / IV / 期权热力图
+- 替换 pandas → 使用 Polars 进行数据聚合、排序、窗口分析
+- 用于生成 IV 曲线、Skew 曲面、OI 热图更高效
+
+Stage 4: 策略参数优化（Optuna）
+- 目标函数 = "策略收益/胜率/回撤"
+- 运行 Optuna study → 自动寻找合适参数
+
+Stage 5: 扩展为分布式回测 (Ray 可选)
+- 多 ticker + 多 expiry + 多参数组合 → Ray Tune 分布调度
+- 比 for 循环 + 单线程更高效
+
+4. 示例目录结构
+
+project/
+  ├─ infrastructure/        # CDK/SAM 配置 (API, Lambda, DynamoDB, S3)
+  ├─ backend/
+  │   ├─ app.py            # FastAPI 主文件（Mangum 接 Lambda）
+  │   ├─ services/         # Polygon 数据 + 指标计算
+  │   ├─ cache/            # DynamoDB + TTL 缓存
+  │   ├─ utils/            # Powertools logs/metrics/tracer
+  ├─ batch/
+  │   ├─ fetch_data.py     # 用 awswrangler+polars 拉数据入 S3 Parquet
+  │   ├─ compute_signals.py# 计算 PCR, IV Skew, Max Pain
+  │   ├─ optimize_optuna.py# 使用 Optuna 优化策略参数
+  ├─ frontend/             # React + Tailwind + Recharts
+  
+5. 你接下来可以选择：
+✔ 让我帮你生成完整工程代码模板（含 Lambda + FastAPI）  
+✔ 生成 CDK (基础设施 as code)  
+✔ 帮你写 Optuna 参数优化脚本 + 回测逻辑  
+✔ 或导出 Word/PDF/Markdown 版本文档
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 1. Project Overview
 - Goal: Build a low-cost AWS-based website dashboard to visualize options data from Polygon.io as decision support.
 - Core Features:
