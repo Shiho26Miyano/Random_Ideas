@@ -1,0 +1,148 @@
+
+AWS 上的 SHEIN 热销产品 & 商家洞察 Dashboard（最简 UI）— 分阶段项目计划（TXT）
+作者：上Square 为 Elaine 定制
+目标：在 AWS 上搭建一个低成本、易操作的网页仪表盘，展示过去 3 个月（可配置）SHEIN 的热门产品与商家排行。UI 以“最简单可用”为原则。
+
+— 目录 —
+0. 方案概览
+1. 数据来源与合规
+2. 架构与成本（最简方案 + 可进阶）
+3. Stages（分阶段执行，不用 Week）
+4. 数据模型与指标口径
+5. 风险与Guardrails
+6. 运维与监控
+7. 里程碑产物（每个Stage的交付件）
+8. 附录：接口与任务清单示例
+
+────────────────────────────────────────────────────────
+0) 方案概览
+- UI：Streamlit（最简单上手的 Python Web UI），一键打包为容器，部署到 AWS App Runner（全托管），支持 HTTPS 与Auto-Scaling。
+- 数据拉取：优先使用第三方 Shein 抓取/搜索 API（如 Bright Data Shein Scraper、Apify Shein Actor、SearchAPI Shein API），或官方 Seller API（若有卖家权限）。
+- 数据存储：DynamoDB（热数据 + TTL）+ S3（原始JSON + 历史汇总 Parquet）。
+- 定时任务：EventBridge 触发 Lambda 拉取 & 汇总（每日/每6小时，可配置）。
+- API 层（可选）：API Gateway + Lambda 为前端提供瘦API（若 Streamlit 需要分离数据层）。
+- 预算：目标 < $30/月（不含第三方抓取/API费用与 Shein 官方付费）。
+
+────────────────────────────────────────────────────────
+1) 数据来源与合规
+- 官方（推荐优先）：SHEIN Developer Platform（必须有商家/合作权限）→ 可获取店铺产品清单、销售概览（范围通常仅自家店）。
+- 第三方（平台级视角）：
+  * Bright Data Shein Scraper API（可定向抓取产品公开页、评论数、价格、活动等，可能提供销量“估算”字段）。
+  * Apify Shein Scraper（Actor 任务，按关键字/类目批量抓取）。
+  * SearchAPI Shein（搜索接口，返回产品信息；销量口径需确认）。
+- 合规注意：明确用途仅限公开数据分析；遵守对方 ToS、Robots 与法律法规；避免抓取敏感/私密数据；控制抓取频率与地区站点；若做商业用途需合法授权。
+
+────────────────────────────────────────────────────────
+2) 架构与成本（最简 → 可进阶）
+A. 最简方案（推荐起步）
+- 前端/后端合一：Streamlit 单体应用（Python）。
+- 部署：容器化（Docker）→ AWS App Runner（全托管；免运维EC2）。
+- 数据层：
+  * DynamoDB（表：items、sellers、snapshots、ranks；设置 TTL 以控成本）。
+  * S3（raw/ YYYY=MM=DD=… 存原始JSON；warehouse/存 Parquet 汇总）。
+- 定时：EventBridge 规则 → Lambda（Python）执行数据拉取/聚合，写入 DynamoDB + S3。
+- 密钥：Secrets Manager（第三方 API Key、Shein 认证信息）。
+- 监控：CloudWatch Logs & Metrics；预算告警。
+
+B. 进阶方案（可后续演进）
+- 分层：API Gateway + Lambda 暴露独立 JSON API，Streamlit 改为纯前端展示层。
+- 数据分析：Athena + Glue + Parquet（历史分析/HQL查询）；可替换 pandas 为 Polars 加速聚合。
+- 任务编排：Step Functions 管理“抓取 → 清洗 → 聚合 → 排名 → 入库”。
+- 横向扩展：多地区站点并发抓取（Ray/Batch），队列 SQS 控制速率。
+
+────────────────────────────────────────────────────────
+3) Stages（分阶段执行，不写 Week）
+Stage 0：最小可用（MVP 零代码外设）
+- 目标：本地跑通 Streamlit，调用任一数据源的 demo 接口，渲染 Top N 产品的“占位表格”。
+- 产物：本地 .env（API_KEY 等）、demo_shein_client.py、app_streamlit.py（最简单页面）。
+
+Stage 1：AWS 最简上线
+- 将 Streamlit 容器化（Dockerfile），部署到 App Runner（HTTPS 自动）。
+- 配置自定义域名（可选）+ CloudFront（可选）。
+- 使用 Secrets Manager 注入第三方 API Key（通过 App Runner 环境变量）。
+- 在页面添加「查询条件」：地区站点、类目、时间窗口（默认 90 天）、Top N。
+
+Stage 2：数据持久化 + 定时拉取
+- 建 DynamoDB 表：
+  * shein_items(pk:item_id, sk:snapshot_date, seller_id, title, price, rating, review_count, est_sales,...)
+  * shein_sellers(pk:seller_id, name, country, brand_flags,...)
+  * shein_ranks(pk:window_90d, sk:rank_type#date, payload)  —— 保存每日滚动 Top 排名结果
+- 建 S3 路径：s3://bucket/raw/shein/… 与 s3://bucket/warehouse/shein/...
+- EventBridge → Lambda：按关键词/类目/榜单页抓取；落S3 raw；聚合计算；写 DynamoDB 与 ranks。
+
+Stage 3：指标与可视化完善
+- 指标：销量件数（或估算）、销售额（price*sales）、增长率（近7天对比近30天/90天）、热销SKU数、商家热销覆盖度。
+- UI：Streamlit 页面分区（Tabs）：
+  * Top Products、Top Sellers、Categories、Trends（时间滑窗）。
+  * 交互筛选：类目、地区站点、品牌/商家、价格区间。
+- 性能：用 Polars 加速聚合（本地或 Lambda Layer）。
+- 导出：CSV/Parquet 下载按钮；快照时间戳显示。
+
+Stage 4：Guardrails + 低成本优化
+- 抓取速率与重试策略（指数退避）；黑名单/白名单 URL。
+- TTL 清理旧数据；S3 Lifecycle → Glacier 归档。
+- 预算告警：每月阈值（Email/SNS）；抓取成本仪表（单请求成本/天）。
+- Observability：Powertools（日志/追踪/指标）；关键错误报警（SNS）。
+
+Stage 5：分离 API 层（可选）
+- 新增 API Gateway + Lambda：
+  * GET /ranks/top-products?region=US&window=90d
+  * GET /ranks/top-sellers?region=US&window=90d
+  * GET /items/{item_id}
+- Streamlit 仅作为前端消费 API，便于后续改前端技术栈（React/Next）。
+
+────────────────────────────────────────────────────────
+4) 数据模型与指标口径
+- 时间窗口：默认过去 90 天（可 30/60/180 配置）。
+- 产品口径：以 item_id 粒度；去重不同变体（颜色/尺码）可聚合为 SPU。
+- 商家口径：seller_id（需从页面/接口抽取并规范化）。
+- 核心字段：title、category、price、currency、rating、review_count、discount、launch_date、seller_id、seller_name、country、region_site、url。
+- 指标计算：
+  * est_sales：第三方API若提供则直接用；否则用 “评论数增长 × 假设系数” 估算（需标注为估算）。
+  * sales_amount = est_sales × price（多币种需 FX 统一）。
+  * growth_rate：近7天 est_sales / 近30天 est_sales（或环比/同比）。
+  * rank_score：加权(销量、金额、增速、评论增量、折扣强度)→ 排名。
+
+────────────────────────────────────────────────────────
+5) 风险与 Guardrails
+- 法律/合规：遵守 ToS、Robots、隐私要求；仅分析公开信息；必要时加入地域访问控制。
+- 反爬虫/稳定性：限制 QPS；代理池/重试/指纹对策（交由第三方Scraper服务处理）。
+- 估算误差：标注“估算”与误差区间；不要对外宣称“官方销量”。
+- 成本：第三方API费用可能是大头；用关键词/类目白名单聚焦拉取范围。
+
+────────────────────────────────────────────────────────
+6) 运维与监控
+- CloudWatch 指标：抓取成功率、失败率、单次耗时、写库耗时、App Runner CPU/内存。
+- 日志追踪：Powertools Trace ID；关键路径（抓取→清洗→聚合→排名）。
+- 告警：失败率>阈值、连续 N 次无新数据、预算超支。
+
+────────────────────────────────────────────────────────
+7) 里程碑产物（每个Stage的交付件）
+- Stage 0：可运行的 Streamlit demo + 一个测试查询页面 + 本地 .env
+- Stage 1：公网可访问的 App Runner 服务（HTTPS）+ 域名（可选）
+- Stage 2：DynamoDB 表 + S3 路径 + 定时抓取 Lambda（成功写入样本数据）
+- Stage 3：完整可视化（Top Products/Sellers/Trends）+ 导出能力 + 性能优化
+- Stage 4：预算与失败报警 + TTL/Lifecycle 策略 + 抓取策略卫兵
+- Stage 5：稳定 API 层 + Streamlit 只做前端（可选）
+
+────────────────────────────────────────────────────────
+8) 附录：接口与任务清单示例
+A. 抓取任务参数
+- regions = ["US", "UK", "DE", ...]（按需）
+- categories = ["women", "men", "home", ...]（按需）
+- keywords = ["dress", "swimwear", "wedding", ...]（按需）
+- schedule = 每日 1 次（凌晨） + 每 6 小时增量（可选）
+
+B. Lambda 伪代码（聚合）
+1) 读取 s3://raw/shein/YYYY/MM/DD/*.json
+2) 规范字段 → 过滤重复/下架
+3) 计算 90d 窗口 est_sales、sales_amount、growth_rate
+4) 写入 DynamoDB（items/sellers）与 ranks 表
+
+C. Streamlit UI 模块
+- 侧边栏：Region / Category / Window / Top N / 关键词
+- 主区：Tabs = [Top Products, Top Sellers, Trends, Categories]
+- 表格：可导出 CSV/Parquet（后端从 S3 or DynamoDB 读取）
+- 说明：标注“数据来源/估算说明/更新时间戳”
+
+—— 完 ——
