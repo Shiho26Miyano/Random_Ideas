@@ -1,0 +1,70 @@
+
+1. Project Overview
+- Goal: Build a low-cost AWS-based website dashboard to visualize options data from Polygon.io as decision support.
+- Core Features:
+  * Options Open Interest Heatmap
+  * Put/Call Ratio (PCR)
+  * IV Term Structure and Skew
+  * Unusual Options Flow Detection
+  * Max Pain and Expiry Clusters
+
+2. Architecture
+- Frontend: S3 Static Website + CloudFront (React/Tailwind)
+- Backend: API Gateway + Lambda (FastAPI via Mangum)
+- Authentication: AWS Cognito (optional for MVP)
+- Data Source: Polygon.io Options API (paid)
+- Cache & Storage:
+  * DynamoDB (hot data with TTL)
+  * S3 Parquet files for historical archives
+  * Optional: API Gateway cache
+- Scheduler: AWS EventBridge for pre-fetch tasks
+- Secrets: AWS Secrets Manager to store Polygon API key
+- Monitoring: CloudWatch + AWS Budget Alerts
+
+3. Backend API Endpoints
+- GET /api/v1/health
+- GET /api/v1/options/summary?symbol=AAPL
+- GET /api/v1/options/oi-change?symbol=AAPL&expiries=8
+- GET /api/v1/options/pcr?symbol=AAPL
+- GET /api/v1/options/iv-term?symbol=AAPL
+- GET /api/v1/options/max-pain?symbol=AAPL&expiry=2025-12-19
+- GET /api/v1/options/unusual-flow?symbol=AAPL
+
+4. Data Flow
+- Frontend requests API
+- Lambda checks DynamoDB cache
+- If cache miss, fetch from Polygon.io → process → save to DynamoDB + return
+- Historical data saved to S3 (optional)
+- EventBridge pre-fetches hot symbols (e.g. SPY, QQQ, NVDA)
+
+5. Stages (Instead of Weeks)
+
+Stage 1:
+- Setup S3 + CloudFront
+- Setup Lambda + API Gateway + FastAPI health check
+
+Stage 2:
+- Integrate Polygon API (summary + PCR)
+- Add DynamoDB cache
+
+Stage 3:
+- Add OI Heatmap, IV Term endpoints
+- Basic React frontend dashboard
+
+Stage 4:
+- Add unusual flow & max pain
+- Deploy EventBridge scheduler for pre-fetch
+- Add CloudWatch alarms + Budget alerts
+
+6. Cost Control Strategy
+- S3 + CloudFront < $5
+- Lambda + API Gateway < $10
+- DynamoDB on-demand < $10
+- Monitor Polygon API usage to avoid limits
+Total target cost: <$30 per month (excluding Polygon subscription)
+
+7. Next Actions
+- Confirm symbols for monitoring
+- Generate AWS CDK or Terraform template
+- Build minimal FastAPI backend with cache logic
+- Create initial frontend layout
