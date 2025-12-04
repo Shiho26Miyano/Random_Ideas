@@ -1,0 +1,76 @@
+# understand what a company really do based on employee's work experience 
+
+## background 
+Software Engineer, Backend
+dragin · Full-timedragin · Full-time
+Nov 2023 - Present · 2 yrs 2 mosNov 2023 to Present · 2 yrs 2 mos
+New York, United StatesNew York, United States
+Scaling and optimizing pre- and post-underwriting workflows by building an end-to-end funding experience—from AI-driven automation to payment infrastructure.
+
+Key Achievements:
+• Enhanced and developed AI systems for document classification, data extraction, and underwriting support workflows.
+• Built a reusable AI agent library integrating LangGraph, LangChain, and Gemini SDK to accelerate prototyping and launching AI agents into production.
+• Led full-stack development of an ACH payments platform (FastAPI, Postgres) enabling customers to initiate, process, and track transactions.
+
+
+######## 
+Team Scope Summary
+
+1. AI-Driven Underwriting Automation
+Creating systems that automatically classify documents (e.g., bank statements, IDs, tax forms)
+Extracting structured financial and identity data from documents.
+Automating workflows used by underwriting analysts to evaluate risk.
+
+2. AI Agent Platform Development
+Building a reusable AI agent library using LangGraph, LangChain, and Gemini SDK.
+Helping the company quickly create and deploy AI agents for various internal workflows.
+Providing internal tooling to standardize AI workflows.
+
+3. Payment Infrastructure (ACH Platform)
+Building the backend system (FastAPI + Postgres) for initiating, processing, and tracking ACH transactions.
+Supporting end-to-end payment flows tied to funding and collections.
+
+Product Focus Summary
+1. Pre-Underwriting Automation
+Automate gathering, analyzing, and extracting data from customer documents.
+
+2. Underwriting Decision Support
+Provide workflows and structured data to help underwriters make faster, more accurate decisions.
+
+3. Post-Underwriting & Funding Operations
+Manage the steps after approval:
+Payment initiation (ACH)
+Disbursement
+Tracking and reconciliation
+Compliance and reporting
+
+4. AI-Driven Workflow Optimization
+Use AI agents and document intelligence to replace manual operations across the lending/funding lifecycle.
+
+⭐ The Company’s Potential (Realistic Evaluation)
+1. Market Potential: Moderate but Competitive
+They operate in the FinTech lending / underwriting automation space.
+This market is large (banks, lenders, SMB financing), but also:
+crowded (Plaid, Alloy, Middesk, Navan Lending, Ocrolus)
+heavily regulated
+slow to adopt new vendors
+difficult to scale without enterprise connections
+→ Not explosive, but stable if they find niche customers.
+
+2. Product Potential: Good (If execution is strong)
+Their product combines:
+AI document processing
+underwriting workflow automation
+ACH payment infrastructure
+internal AI agent framework
+This is a strong bundle because lenders want a single end-to-end platform.
+→ If they get 5–10 strong B2B clients, revenue can grow consistently.
+
+3. Technology Differentiation: Medium
+They use trendy tools (LangGraph, LangChain, Gemini), but:
+competitors can replicate AI agent libraries quickly
+document extraction is a commodity unless accuracy is superior
+ACH payment systems exist everywhere
+→ Tech alone won’t create a moat; execution + partnerships matter more.
+
+
